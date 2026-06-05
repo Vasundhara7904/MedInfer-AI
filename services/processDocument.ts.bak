@@ -1,0 +1,100 @@
+import {
+  extractMedicalEvents,
+} from "@/lib/parsing/extractMedicalEvents";
+
+import {
+  storeMedicalEvents,
+} from "@/services/storeMedicalEvents";
+
+import { createClient }
+  from "@/lib/supabase/server";
+
+//export async function processDocument(
+  documentId: string
+) {
+  const supabase =
+    await createClient();
+
+  const {
+    data: document,
+    error,
+  } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("id", documentId)
+    .single();
+
+  if (
+    error ||
+    !document
+  ) {
+    throw new Error(
+      "Document not found"
+    );
+  }
+
+  await supabase
+    .from("documents")
+    .update({
+      processing_status:
+        "processing",
+    })
+    .eq(
+      "id",
+      documentId
+    );
+
+  try {
+    const text =
+      document.extracted_text ?? "";
+
+    console.log(
+      "TEXT:",
+      text
+    );
+
+    const events =
+      extractMedicalEvents(
+        text
+      );
+
+    console.log(
+      "EVENTS:",
+      events
+    );
+
+    await storeMedicalEvents(
+      document.user_id,
+      document.id,
+      events
+    );
+
+    await supabase
+      .from("documents")
+      .update({
+        processing_status:
+          "completed",
+      })
+      .eq(
+        "id",
+        documentId
+      );
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+    await supabase
+      .from("documents")
+      .update({
+        processing_status:
+          "failed",
+      })
+      .eq(
+        "id",
+        documentId
+      );
+  }
+}
