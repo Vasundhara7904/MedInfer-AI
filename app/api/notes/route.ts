@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
 import { createClient } from "@/lib/supabase/server";
-
-
+import { indexText } from "@/services/indexText";
 
 export async function POST(
   request: Request
@@ -72,7 +71,7 @@ export async function POST(
             content,
 
           processing_status:
-            "pending",
+            "completed",
 
           status:
             "uploaded",
@@ -94,10 +93,19 @@ export async function POST(
       );
     }
 
+    await indexText(
+      user.id,
+      documentId,
+      content
+    );
+
     return NextResponse.json({
       success: true,
+      indexed: true,
     });
+
   } catch (error) {
+
     console.error(error);
 
     return NextResponse.json(
